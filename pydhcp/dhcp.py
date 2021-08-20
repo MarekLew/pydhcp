@@ -10,7 +10,10 @@ from subprocess import Popen, PIPE
 import sys
 import time
 import fcntl
-import IN
+
+if sys.version_info.major == 2:
+    import IN
+
 import ipaddress
 
 
@@ -92,6 +95,10 @@ class IfConfigParser(object):
             return False
 
         output, error, rc = self.exec_cmd(['ifconfig', self.interface])
+        
+        if sys.version_info.major == 3:
+            output = output.decode('utf-8')
+            error = error.decode('utf-8')
 
         if rc:
             return False
@@ -368,7 +375,7 @@ class DhcpServer(object):
 
         m = re.search(r'(?P<subnet>\d+.\d+.\d+)', self.subnet)
         if not m:
-            print 'invalid subnet'
+            print('invalid subnet')
             self.leases = None
 
         m = m.groupdict()
@@ -379,7 +386,12 @@ class DhcpServer(object):
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
         # 25 here corresponds to SO_BINDTODEVICE, which is not exposed by Python (presumably for portability reasons).
-        self.sock.setsockopt(socket.SOL_SOCKET, 25, self.interface)
+        
+        if sys.version_info.major == 2:
+            self.sock.setsockopt(socket.SOL_SOCKET, 25, self.interface)
+        else: 
+            self.sock.setsockopt(socket.SOL_SOCKET, 25, str.encode(self.interface))
+        
         self.sock.bind((self.ip, self.port))
 
     def get_ip(self, interface=None):
@@ -427,19 +439,19 @@ class DhcpServer(object):
         offer.option.dns = '10.1.1.1'
         offer.option.domain_name = 'localdomain'
 
-        print offer.to_string()
+        print(offer.to_string())
         self.sock.sendto(offer.encode(), ('<broadcast>', 68))
 
     def start_server(self):
-        print 'dhcp server started'
+        print('dhcp server started')
         while True:
             data = self.sock.recv(4096)
             dhcp = DhcpPacket(data)
             if dhcp.message_type == DHCP_DISCOVER:
-                print 'sending offer'
+                print('sending offer')
                 self.offer(dhcp)
             if dhcp.message_type == DHCP_REQUEST:
-                print 'sending ack'
+                print('sending ack')
                 self.ack(dhcp)
 
 
